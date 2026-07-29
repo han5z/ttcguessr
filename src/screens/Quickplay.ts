@@ -36,6 +36,7 @@ const REFRESH_ICON = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.
 const VOLUME_ON_ICON = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 9.99996V14C3 14.55 3.45 15 4 15H7L10.29 18.29C10.92 18.92 12 18.47 12 17.58V6.40996C12 5.51996 10.92 5.06996 10.29 5.69996L7 8.99996H4C3.45 8.99996 3 9.44996 3 9.99996ZM16.5 12C16.5 10.23 15.48 8.70996 14 7.96996V16.02C15.48 15.29 16.5 13.77 16.5 12ZM14 4.44996V4.64996C14 5.02996 14.25 5.35996 14.6 5.49996C17.18 6.52996 19 9.05996 19 12C19 14.94 17.18 17.47 14.6 18.5C14.24 18.64 14 18.97 14 19.35V19.55C14 20.18 14.63 20.62 15.21 20.4C18.6 19.11 21 15.84 21 12C21 8.15996 18.6 4.88996 15.21 3.59996C14.63 3.36996 14 3.81996 14 4.44996Z" fill="currentColor"/></svg>`;
 const VOLUME_OFF_ICON = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.63 3.63002C3.24 4.02002 3.24 4.65002 3.63 5.04002L7.29 8.70002L7 9.00002H4C3.45 9.00002 3 9.45002 3 10V14C3 14.55 3.45 15 4 15H7L10.29 18.29C10.92 18.92 12 18.47 12 17.58V13.41L16.18 17.59C15.69 17.96 15.16 18.27 14.58 18.5C14.22 18.65 14 19.03 14 19.42C14 20.14 14.73 20.6 15.39 20.33C16.19 20 16.94 19.56 17.61 19.02L18.95 20.36C19.34 20.75 19.97 20.75 20.36 20.36C20.75 19.97 20.75 19.34 20.36 18.95L5.05 3.63002C4.66 3.24002 4.03 3.24002 3.63 3.63002ZM19 12C19 12.82 18.85 13.61 18.59 14.34L20.12 15.87C20.68 14.7 21 13.39 21 12C21 8.17002 18.6 4.89002 15.22 3.60002C14.63 3.37002 14 3.83002 14 4.46002V4.65002C14 5.03002 14.25 5.36002 14.61 5.50002C17.18 6.54002 19 9.06002 19 12ZM10.29 5.71002L10.12 5.88002L12 7.76002V6.41002C12 5.52002 10.92 5.08002 10.29 5.71002ZM16.5 12C16.5 10.23 15.48 8.71002 14 7.97002V9.76002L16.48 12.24C16.49 12.16 16.5 12.08 16.5 12Z" fill="currentColor"/></svg>`;
 const COPY_ICON = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 1H4C2.9 1 2 1.9 2 3V16C2 16.55 2.45 17 3 17C3.55 17 4 16.55 4 16V4C4 3.45 4.45 3 5 3H15C15.55 3 16 2.55 16 2C16 1.45 15.55 1 15 1ZM15.59 5.59L20.42 10.42C20.79 10.79 21 11.3 21 11.83V21C21 22.1 20.1 23 19 23H7.99C6.89 23 6 22.1 6 21L6.01 7C6.01 5.9 6.9 5 8 5H14.17C14.7 5 15.21 5.21 15.59 5.59ZM15 12H19.5L14 6.5V11C14 11.55 14.45 12 15 12Z" fill="currentColor"/></svg>`;
+const CLOSE_ICON = `<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18.3 5.71C17.91 5.32 17.28 5.32 16.89 5.71L12 10.59L7.10997 5.7C6.71997 5.31 6.08997 5.31 5.69997 5.7C5.30997 6.09 5.30997 6.72 5.69997 7.11L10.59 12L5.69997 16.89C5.30997 17.28 5.30997 17.91 5.69997 18.3C6.08997 18.69 6.71997 18.69 7.10997 18.3L12 13.41L16.89 18.3C17.28 18.69 17.91 18.69 18.3 18.3C18.69 17.91 18.69 17.28 18.3 16.89L13.41 12L18.3 7.11C18.68 6.73 18.68 6.09 18.3 5.71Z" fill="currentColor"/></svg>`;
 
 /** Initial view frames from York Mills down to Union. */
 const INITIAL_VIEW_TOP = STATIONS.find((s) => s.id === 'york-mills')!;
@@ -121,7 +122,13 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
             <button class="btn btn-secondary" id="share-btn" type="button">Share</button>
             <button class="btn btn-secondary" id="results-home-btn" type="button">Home</button>
           </div>
-          <div class="share-panel" id="share-panel" hidden>
+        </div>
+      </div>
+      <div class="share-overlay" id="share-overlay" hidden>
+        <div class="share-modal">
+          <button class="icon-btn share-modal-close" id="share-close-btn" type="button" title="Close" aria-label="Close">${CLOSE_ICON}</button>
+          <h3>Share</h3>
+          <div class="share-panel">
             <pre class="share-text" id="share-text"></pre>
             <button class="icon-btn" id="copy-btn" type="button" title="Copy to clipboard" aria-label="Copy to clipboard">${COPY_ICON}</button>
           </div>
@@ -153,7 +160,8 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
   const playAgainBtn = container.querySelector<HTMLButtonElement>('#play-again-btn')!;
   const shareBtn = container.querySelector<HTMLButtonElement>('#share-btn')!;
   const resultsHomeBtn = container.querySelector<HTMLButtonElement>('#results-home-btn')!;
-  const sharePanel = container.querySelector<HTMLElement>('#share-panel')!;
+  const shareOverlay = container.querySelector<HTMLElement>('#share-overlay')!;
+  const shareCloseBtn = container.querySelector<HTMLButtonElement>('#share-close-btn')!;
   const shareTextEl = container.querySelector<HTMLElement>('#share-text')!;
   const copyBtn = container.querySelector<HTMLButtonElement>('#copy-btn')!;
 
@@ -226,7 +234,7 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
       <div class="breakdown-row"><span>Revealed</span><strong>${b.revealed}</strong></div>
     `;
     primaryActions.style.display = mode === 'daily' ? 'none' : '';
-    sharePanel.hidden = true;
+    shareOverlay.hidden = true;
     resultsOverlay.hidden = false;
     playSound(score > max * 0.3 ? 'gameFinished' : 'gameOverFail');
   }
@@ -255,6 +263,7 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
   function startNewGame() {
     cancelPendingAdvance();
     resultsOverlay.hidden = true;
+    shareOverlay.hidden = true;
     session = createSession(mode);
     startRound();
     focusInitialView(map);
@@ -272,10 +281,16 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
   playAgainBtn.addEventListener('click', startNewGame);
 
   shareBtn.addEventListener('click', () => {
-    sharePanel.hidden = !sharePanel.hidden;
-    if (!sharePanel.hidden) {
-      shareTextEl.textContent = buildShareText(session);
-    }
+    shareTextEl.textContent = buildShareText(session);
+    shareOverlay.hidden = false;
+  });
+
+  shareCloseBtn.addEventListener('click', () => {
+    shareOverlay.hidden = true;
+  });
+
+  shareOverlay.addEventListener('click', (ev) => {
+    if (ev.target === shareOverlay) shareOverlay.hidden = true;
   });
 
   copyBtn.addEventListener('click', () => {
@@ -294,6 +309,7 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
     if (awaitingRevealConfirm) {
       if (station && station.id === target.id) {
         map.flashStation(target.id, 'correct');
+        playSound('correct');
         finishRound({ station: target, attemptsUsed: MAX_ATTEMPTS + 1, points: 0, solved: false });
       }
       return;
@@ -322,6 +338,7 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
       awaitingRevealConfirm = true;
       map.revealStation(target.id);
       map.showLabel(target.id);
+      map.panToStation(target.id);
     } else if (attempt === 2) {
       map.highlightLines(target.lines);
       addLineChips(target.lines);

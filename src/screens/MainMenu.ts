@@ -10,9 +10,9 @@ export function renderMainMenu(container: HTMLElement, opts: MainMenuOptions): v
       <h1>TTC Guessr</h1>
       <p class="subtitle">How well do you know Toronto's rapid transit map?</p>
       <div class="menu-modes">
+        <button class="btn btn-primary" id="daily-btn">Daily Challenge</button>
         <button class="btn btn-primary" id="quickplay-btn">Quickplay</button>
-        <button class="btn btn-secondary" id="daily-btn">Daily Challenge</button>
-        <button class="btn btn-secondary" id="fillmap-btn">Fill The Map</button>
+        <button class="btn btn-primary" id="fillmap-btn">Fill The Map</button>
       </div>
     </div>
   `;

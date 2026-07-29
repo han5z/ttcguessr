@@ -31,6 +31,8 @@ export interface MapView {
   setInteractive(interactive: boolean): void;
   /** Frame the box between two map-space points (plus padding); call after mounting. */
   focusOnBounds(x1: number, y1: number, x2: number, y2: number, padding: number): void;
+  /** Smoothly re-centers the current view on a station without changing zoom. */
+  panToStation(stationId: string): void;
 }
 
 function el<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number> = {}): SVGElementTagNameMap[K] {
@@ -162,6 +164,7 @@ export async function createMapView(): Promise<MapView> {
 
   /** Frames the box between two map-space points (plus padding), filling the container. */
   function focusOnBounds(x1: number, y1: number, x2: number, y2: number, padding: number) {
+    cancelPanAnimation();
     const rect = svg.getBoundingClientRect();
     const aspect = rect.height > 0 ? rect.width / rect.height : MAP_VIEWBOX.width / MAP_VIEWBOX.height;
     const boxW = Math.abs(x2 - x1) + padding * 2;
@@ -182,11 +185,41 @@ export async function createMapView(): Promise<MapView> {
     applyView();
   }
 
+  let panAnimationFrame: number | null = null;
+
+  function cancelPanAnimation() {
+    if (panAnimationFrame !== null) {
+      cancelAnimationFrame(panAnimationFrame);
+      panAnimationFrame = null;
+    }
+  }
+
+  /** Smoothly re-centers the current view on a station without changing zoom. */
+  function panToStation(stationId: string) {
+    const station = STATIONS.find((s) => s.id === stationId);
+    if (!station) return;
+    cancelPanAnimation();
+    const startCx = view.x + view.w / 2;
+    const startCy = view.y + view.h / 2;
+    const duration = 500;
+    const startTime = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - startTime) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      view.x = startCx + (station.x - startCx) * eased - view.w / 2;
+      view.y = startCy + (station.y - startCy) * eased - view.h / 2;
+      applyView();
+      panAnimationFrame = t < 1 ? requestAnimationFrame(step) : null;
+    };
+    panAnimationFrame = requestAnimationFrame(step);
+  }
+
   svg.addEventListener(
     'wheel',
     (ev) => {
       if (!interactive) return;
       ev.preventDefault();
+      cancelPanAnimation();
       const local = toLocalPoint(ev.clientX, ev.clientY);
       if (!local) return;
       const factor = ev.deltaY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
@@ -206,6 +239,7 @@ export async function createMapView(): Promise<MapView> {
 
   svg.addEventListener('pointerdown', (ev) => {
     if (!interactive || ev.button !== 0) return;
+    cancelPanAnimation();
     panState = { pointerId: ev.pointerId, startX: ev.clientX, startY: ev.clientY, startViewX: view.x, startViewY: view.y };
     dragMoved = false;
     svg.setPointerCapture(ev.pointerId);
@@ -365,5 +399,6 @@ export async function createMapView(): Promise<MapView> {
     resetHighlights,
     setInteractive,
     focusOnBounds,
+    panToStation,
   };
 }
