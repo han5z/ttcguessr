@@ -27,6 +27,14 @@ export interface MapView {
   flashPoint(x: number, y: number, kind: 'correct' | 'incorrect'): void;
   showLabel(stationId: string): void;
   hideLabel(stationId: string): void;
+  /** Shows a station's label permanently for the rest of the game (survives resetHighlights). */
+  markSolved(stationId: string): void;
+  /** Clears all permanent solved-station labels; call when starting a brand-new game. */
+  clearSolvedLabels(): void;
+  /** Makes a station permanently unclickable for the rest of the game (e.g. once revealed). */
+  disableStation(stationId: string): void;
+  /** Re-enables all disabled stations; call when starting a brand-new game. */
+  clearDisabledStations(): void;
   resetHighlights(): void;
   setInteractive(interactive: boolean): void;
   /** Frame the box between two map-space points (plus padding); call after mounting. */
@@ -127,6 +135,8 @@ export async function createMapView(): Promise<MapView> {
 
   const glowedGroups = new Set<SVGElement>();
   const activeLabels = new Map<string, SVGElement>();
+  const solvedLabels = new Map<string, SVGElement>();
+  const disabledStationIds = new Set<string>();
 
   function nearestStation(x: number, y: number): { station: Station | null; dist: number } {
     let best: Station | null = null;
@@ -280,6 +290,7 @@ export async function createMapView(): Promise<MapView> {
     const local = toLocalPoint(ev.clientX, ev.clientY);
     if (!local) return;
     const { station, dist } = nearestStation(local.x, local.y);
+    if (station && dist <= MAX_HIT_DISTANCE && disabledStationIds.has(station.id)) return;
     const matched = dist <= MAX_HIT_DISTANCE ? station : null;
     for (const cb of clickCallbacks) cb({ station: matched, x: local.x, y: local.y });
   });
@@ -303,7 +314,8 @@ export async function createMapView(): Promise<MapView> {
     const local = toLocalPoint(ev.clientX, ev.clientY);
     if (!local) return;
     const { station, dist } = nearestStation(local.x, local.y);
-    setHovered(station && dist <= MAX_HIT_DISTANCE ? station.id : null);
+    const hoverable = station && dist <= MAX_HIT_DISTANCE && !disabledStationIds.has(station.id);
+    setHovered(hoverable ? station.id : null);
   });
   svg.addEventListener('mouseleave', () => setHovered(null));
 
@@ -346,17 +358,22 @@ export async function createMapView(): Promise<MapView> {
     setTimeout(() => ring.remove(), 650);
   }
 
-  function showLabel(stationId: string) {
-    if (activeLabels.has(stationId)) return;
+  function createLabelClone(stationId: string): SVGElement | null {
     const source = labelSources.get(stationId);
     const marker = markerEls.get(stationId);
-    if (!source || !marker || !marker.parentNode) return;
+    if (!source || !marker || !marker.parentNode) return null;
     const clone = document.importNode(source, true) as SVGElement;
     clone.classList.add('station-label');
     // Insert just before the station's circle so any leader line in the label (some stations'
     // labels include one, pointing back at the dot) renders underneath the circle, not over it.
     marker.parentNode.insertBefore(clone, marker);
-    activeLabels.set(stationId, clone);
+    return clone;
+  }
+
+  function showLabel(stationId: string) {
+    if (activeLabels.has(stationId) || solvedLabels.has(stationId)) return;
+    const clone = createLabelClone(stationId);
+    if (clone) activeLabels.set(stationId, clone);
   }
 
   function hideLabel(stationId: string) {
@@ -370,6 +387,34 @@ export async function createMapView(): Promise<MapView> {
   function hideAllLabels() {
     for (const clone of activeLabels.values()) clone.remove();
     activeLabels.clear();
+  }
+
+  // Once a station is solved (guessed correctly or confirmed after reveal), its label stays up
+  // for the rest of the game - separate from the transient wrong-guess labels above, which get
+  // cleared every round by resetHighlights().
+  function markSolved(stationId: string) {
+    if (solvedLabels.has(stationId)) return;
+    hideLabel(stationId);
+    const clone = createLabelClone(stationId);
+    if (clone) {
+      clone.classList.add('station-label--solved');
+      solvedLabels.set(stationId, clone);
+    }
+  }
+
+  function clearSolvedLabels() {
+    for (const clone of solvedLabels.values()) clone.remove();
+    solvedLabels.clear();
+  }
+
+  // Revealed-but-unsolved stations stay disabled for the rest of the game so a later round's
+  // wrong guess can't land back on them - nearestStation() already skips anything in this set.
+  function disableStation(stationId: string) {
+    disabledStationIds.add(stationId);
+  }
+
+  function clearDisabledStations() {
+    disabledStationIds.clear();
   }
 
   function resetHighlights() {
@@ -396,6 +441,10 @@ export async function createMapView(): Promise<MapView> {
     flashPoint,
     showLabel,
     hideLabel,
+    markSolved,
+    clearSolvedLabels,
+    disableStation,
+    clearDisabledStations,
     resetHighlights,
     setInteractive,
     focusOnBounds,

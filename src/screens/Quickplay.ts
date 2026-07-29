@@ -264,6 +264,8 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
     cancelPendingAdvance();
     resultsOverlay.hidden = true;
     shareOverlay.hidden = true;
+    map.clearSolvedLabels();
+    map.clearDisabledStations();
     session = createSession(mode);
     startRound();
     focusInitialView(map);
@@ -309,6 +311,8 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
     if (awaitingRevealConfirm) {
       if (station && station.id === target.id) {
         map.flashStation(target.id, 'correct');
+        map.markSolved(target.id);
+        map.disableStation(target.id);
         playSound('correct');
         finishRound({ station: target, attemptsUsed: MAX_ATTEMPTS + 1, points: 0, solved: false });
       }
@@ -318,6 +322,7 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
     if (station && station.id === target.id) {
       const points = pointsForAttempt(attempt);
       map.flashStation(target.id, 'correct');
+      map.markSolved(target.id);
       playSound('correct');
       finishRound({ station: target, attemptsUsed: attempt, points, solved: true });
       return;
