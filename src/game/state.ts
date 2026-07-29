@@ -1,9 +1,18 @@
 import { STATIONS, type Station } from '../data/stations';
+import { shuffle, dailySeedRng } from './rng';
 
-export const ROUNDS_PER_GAME = 5;
 export const MAX_ATTEMPTS = 4;
 /** Points awarded for a correct guess on attempt 1, 2, 3, 4; 0 if never guessed. */
 export const POINTS_BY_ATTEMPT = [20, 13, 8, 5] as const;
+export const QUICKPLAY_ROUNDS = 5;
+
+export type GameMode = 'quickplay' | 'daily' | 'fill-map';
+
+export const MODE_LABEL: Record<GameMode, string> = {
+  quickplay: 'Quickplay',
+  daily: 'Daily Challenge',
+  'fill-map': 'Fill The Map',
+};
 
 export interface RoundResult {
   station: Station;
@@ -13,31 +22,26 @@ export interface RoundResult {
 }
 
 export interface GameSession {
+  mode: GameMode;
   stations: Station[];
   currentIndex: number;
   results: RoundResult[];
 }
 
-function shuffle<T>(items: T[]): T[] {
-  const arr = [...items];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+function poolStations(): Station[] {
+  return STATIONS.filter((s) => s.includeInPool);
+}
+
+export function createSession(mode: GameMode): GameSession {
+  let stations: Station[];
+  if (mode === 'daily') {
+    stations = shuffle(poolStations(), dailySeedRng()).slice(0, QUICKPLAY_ROUNDS);
+  } else if (mode === 'fill-map') {
+    stations = shuffle(poolStations());
+  } else {
+    stations = shuffle(poolStations()).slice(0, QUICKPLAY_ROUNDS);
   }
-  return arr;
-}
-
-export function pickRoundStations(count: number = ROUNDS_PER_GAME): Station[] {
-  const pool = STATIONS.filter((s) => s.includeInPool);
-  return shuffle(pool).slice(0, count);
-}
-
-export function createSession(): GameSession {
-  return {
-    stations: pickRoundStations(),
-    currentIndex: 0,
-    results: [],
-  };
+  return { mode, stations, currentIndex: 0, results: [] };
 }
 
 export function pointsForAttempt(attempt: number): number {
@@ -58,4 +62,34 @@ export function isLastRound(session: GameSession): boolean {
 
 export function totalScore(session: GameSession): number {
   return session.results.reduce((sum, r) => sum + r.points, 0);
+}
+
+export function maxPossibleScore(session: GameSession): number {
+  return session.stations.length * POINTS_BY_ATTEMPT[0];
+}
+
+export interface AttemptBreakdown {
+  first: number;
+  second: number;
+  third: number;
+  fourth: number;
+  revealed: number;
+}
+
+export function attemptBreakdown(session: GameSession): AttemptBreakdown {
+  const breakdown: AttemptBreakdown = { first: 0, second: 0, third: 0, fourth: 0, revealed: 0 };
+  for (const r of session.results) {
+    if (!r.solved) {
+      breakdown.revealed += 1;
+    } else if (r.attemptsUsed === 1) {
+      breakdown.first += 1;
+    } else if (r.attemptsUsed === 2) {
+      breakdown.second += 1;
+    } else if (r.attemptsUsed === 3) {
+      breakdown.third += 1;
+    } else if (r.attemptsUsed === 4) {
+      breakdown.fourth += 1;
+    }
+  }
+  return breakdown;
 }

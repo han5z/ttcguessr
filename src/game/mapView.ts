@@ -6,6 +6,11 @@ const MAP_URL = `${import.meta.env.BASE_URL}ttc-map.svg`;
 const LABELS_URL = `${import.meta.env.BASE_URL}ttc-map-labels.svg`;
 /** In the 2699x1701 coordinate space of public/ttc-map.svg. */
 const MAX_HIT_DISTANCE = 80;
+/** Narrowest allowed viewBox width - how far a user can zoom in. */
+const MIN_VIEW_WIDTH = 220;
+const ZOOM_STEP = 1.12;
+/** Screen-pixel movement before a pointerdown is treated as a drag rather than a click. */
+const DRAG_THRESHOLD = 4;
 
 export interface MapClickResult {
   station: Station | null;
@@ -24,6 +29,8 @@ export interface MapView {
   hideLabel(stationId: string): void;
   resetHighlights(): void;
   setInteractive(interactive: boolean): void;
+  /** Frame the box between two map-space points (plus padding); call after mounting. */
+  focusOnBounds(x1: number, y1: number, x2: number, y2: number, padding: number): void;
 }
 
 function el<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number> = {}): SVGElementTagNameMap[K] {
@@ -53,8 +60,15 @@ async function loadMapSvg(): Promise<SVGSVGElement> {
   const svg = document.importNode(root, true) as unknown as SVGSVGElement;
   svg.removeAttribute('width');
   svg.removeAttribute('height');
+  // "slice" fills the container edge-to-edge (cropping overflow) instead of letterboxing,
+  // since the map is meant to span the full browser window with no border.
+  svg.setAttribute('preserveAspectRatio', 'xMidYMid slice');
   svg.setAttribute('viewBox', `0 0 ${MAP_VIEWBOX.width} ${MAP_VIEWBOX.height}`);
   return svg;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }
 
 /** The labels file names each label id "{Station Name} Text" (whitespace can be uneven). */
@@ -136,9 +150,98 @@ export async function createMapView(): Promise<MapView> {
   }
 
   let interactive = true;
+  const view = { x: 0, y: 0, w: MAP_VIEWBOX.width, h: MAP_VIEWBOX.height };
+
+  function applyView() {
+    view.w = Math.min(view.w, MAP_VIEWBOX.width);
+    view.h = Math.min(view.h, MAP_VIEWBOX.height);
+    view.x = clamp(view.x, 0, MAP_VIEWBOX.width - view.w);
+    view.y = clamp(view.y, 0, MAP_VIEWBOX.height - view.h);
+    svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.w} ${view.h}`);
+  }
+
+  /** Frames the box between two map-space points (plus padding), filling the container. */
+  function focusOnBounds(x1: number, y1: number, x2: number, y2: number, padding: number) {
+    const rect = svg.getBoundingClientRect();
+    const aspect = rect.height > 0 ? rect.width / rect.height : MAP_VIEWBOX.width / MAP_VIEWBOX.height;
+    const boxW = Math.abs(x2 - x1) + padding * 2;
+    const boxH = Math.abs(y2 - y1) + padding * 2;
+    let w = boxW;
+    let h = boxH;
+    if (boxW / boxH > aspect) {
+      h = w / aspect;
+    } else {
+      w = h * aspect;
+    }
+    w = clamp(w, MIN_VIEW_WIDTH, MAP_VIEWBOX.width);
+    h = w / aspect;
+    view.w = w;
+    view.h = h;
+    view.x = (x1 + x2) / 2 - w / 2;
+    view.y = (y1 + y2) / 2 - h / 2;
+    applyView();
+  }
+
+  svg.addEventListener(
+    'wheel',
+    (ev) => {
+      if (!interactive) return;
+      ev.preventDefault();
+      const local = toLocalPoint(ev.clientX, ev.clientY);
+      if (!local) return;
+      const factor = ev.deltaY > 0 ? ZOOM_STEP : 1 / ZOOM_STEP;
+      const newW = clamp(view.w * factor, MIN_VIEW_WIDTH, MAP_VIEWBOX.width);
+      const actualFactor = newW / view.w;
+      view.x = local.x - (local.x - view.x) * actualFactor;
+      view.y = local.y - (local.y - view.y) * actualFactor;
+      view.w = newW;
+      view.h = view.h * actualFactor;
+      applyView();
+    },
+    { passive: false },
+  );
+
+  let panState: { pointerId: number; startX: number; startY: number; startViewX: number; startViewY: number } | null = null;
+  let dragMoved = false;
+
+  svg.addEventListener('pointerdown', (ev) => {
+    if (!interactive || ev.button !== 0) return;
+    panState = { pointerId: ev.pointerId, startX: ev.clientX, startY: ev.clientY, startViewX: view.x, startViewY: view.y };
+    dragMoved = false;
+    svg.setPointerCapture(ev.pointerId);
+  });
+
+  svg.addEventListener('pointermove', (ev) => {
+    if (!panState || ev.pointerId !== panState.pointerId) return;
+    const dx = ev.clientX - panState.startX;
+    const dy = ev.clientY - panState.startY;
+    if (!dragMoved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    if (!dragMoved) svg.classList.add('ttc-map--panning');
+    dragMoved = true;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    view.x = panState.startViewX - (dx * view.w) / rect.width;
+    view.y = panState.startViewY - (dy * view.h) / rect.height;
+    applyView();
+    setHovered(null);
+  });
+
+  function endPan(ev: PointerEvent) {
+    if (!panState || ev.pointerId !== panState.pointerId) return;
+    svg.releasePointerCapture(ev.pointerId);
+    svg.classList.remove('ttc-map--panning');
+    panState = null;
+  }
+  svg.addEventListener('pointerup', endPan);
+  svg.addEventListener('pointercancel', endPan);
+
   const clickCallbacks: Array<(r: MapClickResult) => void> = [];
 
   svg.addEventListener('click', (ev) => {
+    if (dragMoved) {
+      dragMoved = false;
+      return;
+    }
     if (!interactive) return;
     const local = toLocalPoint(ev.clientX, ev.clientY);
     if (!local) return;
@@ -261,5 +364,6 @@ export async function createMapView(): Promise<MapView> {
     hideLabel,
     resetHighlights,
     setInteractive,
+    focusOnBounds,
   };
 }
