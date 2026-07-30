@@ -13,7 +13,7 @@ const ZOOM_STEP = 1.12;
 const DRAG_THRESHOLD = 4;
 
 export interface MapClickResult {
-  station: Station | null;
+  station: Station;
   x: number;
   y: number;
 }
@@ -138,10 +138,11 @@ export async function createMapView(): Promise<MapView> {
   const solvedLabels = new Map<string, SVGElement>();
   const disabledStationIds = new Set<string>();
 
-  function nearestStation(x: number, y: number): { station: Station | null; dist: number } {
+  function nearestStation(x: number, y: number, filter?: (s: Station) => boolean): { station: Station | null; dist: number } {
     let best: Station | null = null;
     let bestDist = Infinity;
     for (const s of STATIONS) {
+      if (filter && !filter(s)) continue;
       const dist = Math.hypot(s.x - x, s.y - y);
       if (dist < bestDist) {
         bestDist = dist;
@@ -149,6 +150,18 @@ export async function createMapView(): Promise<MapView> {
       }
     }
     return { station: best, dist: bestDist };
+  }
+
+  /** Resolves the station a point should hit-test against: whichever of the nearest active or
+   * nearest disabled station is actually closer wins, so a disabled station only swallows clicks
+   * genuinely meant for it rather than blanketing its whole hit radius over active neighbors. */
+  function resolveActiveStation(x: number, y: number): { station: Station | null; dist: number } {
+    const active = nearestStation(x, y, (s) => !disabledStationIds.has(s.id));
+    const disabled = nearestStation(x, y, (s) => disabledStationIds.has(s.id));
+    if (disabled.station && disabled.dist <= MAX_HIT_DISTANCE && disabled.dist <= active.dist) {
+      return { station: null, dist: Infinity };
+    }
+    return active;
   }
 
   function toLocalPoint(clientX: number, clientY: number): { x: number; y: number } | null {
@@ -289,10 +302,9 @@ export async function createMapView(): Promise<MapView> {
     if (!interactive) return;
     const local = toLocalPoint(ev.clientX, ev.clientY);
     if (!local) return;
-    const { station, dist } = nearestStation(local.x, local.y);
-    if (station && dist <= MAX_HIT_DISTANCE && disabledStationIds.has(station.id)) return;
-    const matched = dist <= MAX_HIT_DISTANCE ? station : null;
-    for (const cb of clickCallbacks) cb({ station: matched, x: local.x, y: local.y });
+    const { station, dist } = resolveActiveStation(local.x, local.y);
+    if (!station || dist > MAX_HIT_DISTANCE) return;
+    for (const cb of clickCallbacks) cb({ station, x: local.x, y: local.y });
   });
 
   let hoveredId: string | null = null;
@@ -313,9 +325,8 @@ export async function createMapView(): Promise<MapView> {
     if (!interactive) return setHovered(null);
     const local = toLocalPoint(ev.clientX, ev.clientY);
     if (!local) return;
-    const { station, dist } = nearestStation(local.x, local.y);
-    const hoverable = station && dist <= MAX_HIT_DISTANCE && !disabledStationIds.has(station.id);
-    setHovered(hoverable ? station.id : null);
+    const { station, dist } = resolveActiveStation(local.x, local.y);
+    setHovered(station && dist <= MAX_HIT_DISTANCE ? station.id : null);
   });
   svg.addEventListener('mouseleave', () => setHovered(null));
 

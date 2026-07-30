@@ -305,11 +305,11 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
       .catch(() => {});
   });
 
-  map.onClick(({ station, x, y }) => {
+  map.onClick(({ station }) => {
     const target = currentStation(session);
 
     if (awaitingRevealConfirm) {
-      if (station && station.id === target.id) {
+      if (station.id === target.id) {
         map.flashStation(target.id, 'correct');
         map.markSolved(target.id);
         map.disableStation(target.id);
@@ -319,22 +319,19 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
       return;
     }
 
-    if (station && station.id === target.id) {
+    if (station.id === target.id) {
       const points = pointsForAttempt(attempt);
       map.flashStation(target.id, 'correct');
       map.markSolved(target.id);
+      map.disableStation(target.id);
       playSound('correct');
       finishRound({ station: target, attemptsUsed: attempt, points, solved: true });
       return;
     }
 
     playSound('incorrect');
-    if (station) {
-      map.flashStation(station.id, 'incorrect');
-      map.showLabel(station.id);
-    } else {
-      map.flashPoint(x, y, 'incorrect');
-    }
+    map.flashStation(station.id, 'incorrect');
+    map.showLabel(station.id);
 
     attempt += 1;
     updateAttemptDots();
