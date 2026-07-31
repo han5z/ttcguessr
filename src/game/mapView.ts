@@ -260,15 +260,89 @@ export async function createMapView(): Promise<MapView> {
   let panState: { pointerId: number; startX: number; startY: number; startViewX: number; startViewY: number } | null = null;
   let dragMoved = false;
 
+  // Two-finger pinch-to-zoom (touch-action:none on the SVG disables the browser's native
+  // gesture, so it has to be reimplemented here on top of Pointer Events).
+  const activePointers = new Map<number, { x: number; y: number }>();
+  let pinchState: { prevDist: number; prevMidX: number; prevMidY: number } | null = null;
+
+  function pointerDistance(a: { x: number; y: number }, b: { x: number; y: number }): number {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  function pointerMidpoint(a: { x: number; y: number }, b: { x: number; y: number }): { x: number; y: number } {
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  }
+
+  function beginPinch(): void {
+    const [a, b] = Array.from(activePointers.values());
+    const mid = pointerMidpoint(a, b);
+    pinchState = { prevDist: pointerDistance(a, b), prevMidX: mid.x, prevMidY: mid.y };
+  }
+
+  // Capture can fail for pointers the browser no longer considers active (rare, but seen on
+  // Safari) - a thrown error here must not stop gesture tracking from being set up below.
+  function trySetPointerCapture(pointerId: number): void {
+    try {
+      svg.setPointerCapture(pointerId);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function tryReleasePointerCapture(pointerId: number): void {
+    try {
+      svg.releasePointerCapture(pointerId);
+    } catch {
+      /* ignore */
+    }
+  }
+
   svg.addEventListener('pointerdown', (ev) => {
     if (!interactive || ev.button !== 0) return;
     cancelPanAnimation();
-    panState = { pointerId: ev.pointerId, startX: ev.clientX, startY: ev.clientY, startViewX: view.x, startViewY: view.y };
-    dragMoved = false;
-    svg.setPointerCapture(ev.pointerId);
+    trySetPointerCapture(ev.pointerId);
+    activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+
+    if (activePointers.size === 2) {
+      panState = null;
+      svg.classList.remove('ttc-map--panning');
+      beginPinch();
+      dragMoved = true;
+    } else if (activePointers.size === 1) {
+      panState = { pointerId: ev.pointerId, startX: ev.clientX, startY: ev.clientY, startViewX: view.x, startViewY: view.y };
+      dragMoved = false;
+    }
   });
 
   svg.addEventListener('pointermove', (ev) => {
+    if (!activePointers.has(ev.pointerId)) return;
+    activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+
+    if (pinchState && activePointers.size === 2) {
+      const [a, b] = Array.from(activePointers.values());
+      const dist = pointerDistance(a, b);
+      const mid = pointerMidpoint(a, b);
+      const rect = svg.getBoundingClientRect();
+      const local = toLocalPoint(pinchState.prevMidX, pinchState.prevMidY);
+      if (dist > 0 && pinchState.prevDist > 0 && local && rect.width > 0 && rect.height > 0) {
+        const scaleFactor = pinchState.prevDist / dist;
+        const newW = clamp(view.w * scaleFactor, MIN_VIEW_WIDTH, MAP_VIEWBOX.width);
+        const actualFactor = newW / view.w;
+        view.x = local.x - (local.x - view.x) * actualFactor;
+        view.y = local.y - (local.y - view.y) * actualFactor;
+        view.w = newW;
+        view.h = view.h * actualFactor;
+        view.x -= ((mid.x - pinchState.prevMidX) * view.w) / rect.width;
+        view.y -= ((mid.y - pinchState.prevMidY) * view.h) / rect.height;
+        applyView();
+        setHovered(null);
+      }
+      pinchState.prevDist = dist;
+      pinchState.prevMidX = mid.x;
+      pinchState.prevMidY = mid.y;
+      return;
+    }
+
     if (!panState || ev.pointerId !== panState.pointerId) return;
     const dx = ev.clientX - panState.startX;
     const dy = ev.clientY - panState.startY;
@@ -284,8 +358,29 @@ export async function createMapView(): Promise<MapView> {
   });
 
   function endPan(ev: PointerEvent) {
+    if (!activePointers.has(ev.pointerId)) return;
+    activePointers.delete(ev.pointerId);
+    tryReleasePointerCapture(ev.pointerId);
+
+    if (pinchState) {
+      if (activePointers.size >= 2) {
+        beginPinch();
+        return;
+      }
+      pinchState = null;
+      svg.classList.remove('ttc-map--panning');
+      if (activePointers.size === 1) {
+        // One finger still down after a pinch - resume panning from here instead of
+        // requiring the user to lift and re-touch.
+        const [id, pos] = Array.from(activePointers.entries())[0];
+        panState = { pointerId: id, startX: pos.x, startY: pos.y, startViewX: view.x, startViewY: view.y };
+      } else {
+        panState = null;
+      }
+      return;
+    }
+
     if (!panState || ev.pointerId !== panState.pointerId) return;
-    svg.releasePointerCapture(ev.pointerId);
     svg.classList.remove('ttc-map--panning');
     panState = null;
   }
