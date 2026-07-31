@@ -53,31 +53,36 @@ function focusInitialView(map: Awaited<ReturnType<typeof createMapView>>) {
   );
 }
 
-function padRight(s: string, width: number): string {
-  return s + ' '.repeat(Math.max(0, width - s.length));
+const KEYCAP_EMOJI = [
+  '1\u{FE0F}\u{20E3}',
+  '2\u{FE0F}\u{20E3}',
+  '3\u{FE0F}\u{20E3}',
+  '4\u{FE0F}\u{20E3}',
+  '5\u{FE0F}\u{20E3}',
+];
+const ATTEMPT_LABELS = ['1st', '2nd', '3rd', '4th'];
+
+function attemptLabel(result: RoundResult): string {
+  return result.solved ? (ATTEMPT_LABELS[result.attemptsUsed - 1] ?? `${result.attemptsUsed}th`) : 'Revealed';
 }
 
 function buildShareText(session: GameSession): string {
-  const lines = ['TTC Guessr', MODE_LABEL[session.mode], ''];
   if (session.mode === 'fill-map') {
+    const lines = ['TTC Guessr', MODE_LABEL[session.mode], '', `I scored ${totalScore(session)}/${maxPossibleScore(session)}!`, ''];
     const b = attemptBreakdown(session);
     lines.push(`1st try: ${b.first}`);
     lines.push(`2nd try: ${b.second}`);
     lines.push(`3rd try: ${b.third}`);
     lines.push(`4th try: ${b.fourth}`);
     lines.push(`Revealed: ${b.revealed}`);
-  } else {
-    const headers = ['#', 'Station', 'Attempts'];
-    const rows = session.results.map((r, i) => [
-      String(i + 1),
-      r.station.name,
-      r.solved ? String(r.attemptsUsed) : 'Revealed',
-    ]);
-    const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i].length)));
-    const formatRow = (cells: string[]) => cells.map((c, i) => padRight(c, widths[i])).join(' | ');
-    lines.push(formatRow(headers));
-    for (const row of rows) lines.push(formatRow(row));
+    return lines.join('\n');
   }
+
+  const lines = ['TTC Guessr', MODE_LABEL[session.mode], '', `I scored ${totalScore(session)}/${maxPossibleScore(session)}!`, ''];
+  session.results.forEach((r, i) => {
+    const numeral = KEYCAP_EMOJI[i] ?? `${i + 1}.`;
+    lines.push(`${numeral} ${r.station.name} - ${attemptLabel(r)}`);
+  });
   return lines.join('\n');
 }
 

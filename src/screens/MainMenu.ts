@@ -32,11 +32,13 @@ export function renderMainMenu(container: HTMLElement, opts: MainMenuOptions): v
           <button class="icon-btn share-modal-close" id="credits-close-btn" type="button" title="Close" aria-label="Close">${CLOSE_ICON}</button>
           <h3>Credits</h3>
           <div class="credits-body">
+            <p>Map by <a href="https://commons.wikimedia.org/wiki/File:Toronto_rapid_transit_map_2026.svg" target="_blank" rel="noopener noreferrer">Transportfan70</a>.</p>
             <p>Inspired by <a href="https://mrt.ratgames.studio/" target="_blank" rel="noopener noreferrer">mrt.ratgames.studio</a>.</p>
             <p>Sound effects:</p>
             <ul>
-              <li>Incorrect &mdash; Universfield</li>
-              <li>Correct &amp; game over &mdash; freesound_gamestudio</li>
+              <li>Incorrect &mdash; Sound Effect by <a href="https://pixabay.com/users/universfield-28281460/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=206492" target="_blank" rel="noopener noreferrer">Universfield</a> from <a href="https://pixabay.com/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=206492" target="_blank" rel="noopener noreferrer">Pixabay</a></li>
+              <li>Correct &mdash; Sound Effect by <a href="https://pixabay.com/users/freesound_gamestudio-49769582/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=394489" target="_blank" rel="noopener noreferrer">freesound_gamestudio</a> from <a href="https://pixabay.com/sound-effects/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=394489" target="_blank" rel="noopener noreferrer">Pixabay</a></li>
+              <li>Game over &mdash; Sound Effect by <a href="https://pixabay.com/users/freesound_gamestudio-49769582/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=394521" target="_blank" rel="noopener noreferrer">freesound_gamestudio</a> from <a href="https://pixabay.com/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=music&amp;utm_content=394521" target="_blank" rel="noopener noreferrer">Pixabay</a></li>
             </ul>
           </div>
         </div>
