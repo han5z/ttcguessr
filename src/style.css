@@ -20,6 +20,8 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 body {
@@ -38,11 +40,14 @@ body {
 
 #app.app--game {
   height: 100vh;
+  height: 100dvh;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 0;
   align-items: stretch;
   justify-content: stretch;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .btn {
@@ -200,6 +205,8 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
   background: #fbfbfc;
 }
 
@@ -226,9 +233,11 @@ body {
   right: 0;
   z-index: 2;
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 16px
+    max(20px, env(safe-area-inset-left));
   pointer-events: none;
 }
 
@@ -322,12 +331,56 @@ body {
   height: 22px;
 }
 
+/* Narrow screens: topleft + topright don't fit alongside the station-name pill on one row,
+   so the pill/dots drop to a second row spanning the full width instead of squeezing together. */
+@media (max-width: 560px) {
+  .hud-topleft {
+    order: 1;
+    padding: 6px 10px;
+    gap: 2px;
+  }
+
+  .hud-topright {
+    order: 2;
+    gap: 8px;
+  }
+
+  .hud-topmiddle {
+    order: 3;
+    flex-basis: 100%;
+    margin-top: 8px;
+  }
+
+  .round-indicator {
+    font-size: 0.82rem;
+  }
+
+  .score-indicator {
+    font-size: 0.74rem;
+  }
+
+  .station-name-pill {
+    font-size: 1.25rem;
+    padding: 8px 18px;
+  }
+
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .icon-btn svg {
+    width: 19px;
+    height: 19px;
+  }
+}
+
 /* ---------- Hints overlay ---------- */
 
 .hints-box {
   position: absolute;
-  left: 16px;
-  bottom: 16px;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(16px, env(safe-area-inset-bottom));
   z-index: 2;
   background: #ffffff;
   border: 2px solid #111111;
