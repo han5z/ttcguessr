@@ -107,21 +107,21 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
       <div class="map-wrap" id="map-wrap">
         <div class="map-loading">Loading map…</div>
       </div>
-      <div class="game-hud">
+      <div class="game-banner">
         <div class="hud-counter">
           <div class="round-indicator">Station <span id="round-num"></span>/<span id="round-total"></span></div>
           <div class="score-indicator">Score: <span id="running-score">0</span></div>
         </div>
         <div class="hud-prompt">
-          <div class="station-name-pill" id="prompt-name"></div>
+          <div class="station-name" id="prompt-name"></div>
           <div class="attempt-dots" id="attempt-dots">
             <span class="attempt-dot"></span><span class="attempt-dot"></span><span class="attempt-dot"></span><span class="attempt-dot"></span>
           </div>
         </div>
         <div class="hud-controls">
-          <button class="icon-btn" id="volume-btn" type="button" title="Toggle sound" aria-label="Toggle sound"></button>
           <button class="icon-btn" id="home-btn" type="button" title="Main menu" aria-label="Main menu">${HOME_ICON}</button>
           <button class="icon-btn" id="refresh-btn" type="button" title="Restart" aria-label="Restart">${REFRESH_ICON}</button>
+          <button class="icon-btn" id="volume-btn" type="button" title="Toggle sound" aria-label="Toggle sound"></button>
         </div>
       </div>
       <div class="hints-box" id="hints-box">
