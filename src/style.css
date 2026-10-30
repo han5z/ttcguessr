@@ -99,8 +99,9 @@ body {
   --menu-row: calc(100dvh / 6);
 }
 
-/* 7 x 6 grid of cells filling the viewport, as in the mockup. */
+/* 7 x 6 grid of cells filling the viewport, as in the mockup (3 x 6 on phones). */
 .menu-bg {
+  --menu-cols: 7;
   position: fixed;
   inset: 0;
   z-index: 0;
@@ -109,8 +110,14 @@ body {
   background-image:
     linear-gradient(to right, var(--cream-line) 2px, transparent 2px),
     linear-gradient(to bottom, var(--cream-line) 2px, transparent 2px);
-  background-size: calc(100vw / 7) var(--menu-row);
+  background-size: calc(100vw / var(--menu-cols)) var(--menu-row);
   background-position: -1px -1px;
+}
+
+@media (max-width: 560px) {
+  .menu-bg {
+    --menu-cols: 3;
+  }
 }
 
 .menu-logo {
@@ -277,23 +284,26 @@ body {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
 }
 
+/* Grey "Station" label over a larger black "1/5". */
 .hud-counter {
   justify-self: start;
   align-self: center;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  color: var(--muted);
+  line-height: 1.1;
+}
+
+.round-label {
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 .round-indicator {
   font-weight: 700;
-  font-size: 1.1rem;
-}
-
-.score-indicator {
-  font-weight: 600;
-  font-size: 1rem;
-  color: var(--muted);
+  font-size: 1.5rem;
+  color: var(--ink);
 }
 
 .hud-prompt {
@@ -389,59 +399,54 @@ body {
   height: 22px;
 }
 
-/* Narrow screens: there's no room for the name between the counter and the buttons, so the
-   banner holds just those two and the trapezoid hangs below it with the full width to use. */
+/* Narrow screens: the buttons leave the banner and stack in the bottom-left corner (home at
+   the bottom, then restart, volume on top), leaving the banner to the counter and the
+   trapezoid. The trapezoid centres in the space right of the counter, and the name stays on
+   one line (fitPromptName in Quickplay.ts shrinks it if it would overflow). */
 @media (max-width: 560px) {
   .game-banner {
-    grid-template-columns: auto 1fr auto;
-    padding: max(8px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 8px
-      max(12px, env(safe-area-inset-left));
+    grid-template-columns: auto 1fr;
+    column-gap: 10px;
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
   }
 
   .hud-prompt {
     --slant: 16px;
-    grid-column: 1 / -1; /* so left/top are measured against the whole banner */
-    position: absolute;
-    top: calc(100% - 2px);
-    left: 50%;
-    transform: translateX(-50%);
-    width: max-content;
-    max-width: calc(100% - 24px);
-    padding: 4px calc(var(--slant) + 10px) 8px;
+    justify-self: center;
+    max-width: 100%;
+    padding: 6px calc(var(--slant) + 8px) 8px;
     gap: 5px;
   }
 
   .hud-controls {
-    gap: 6px;
+    position: fixed;
+    left: max(16px, env(safe-area-inset-left));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    flex-direction: column-reverse;
+    gap: 8px;
   }
 
-  .hud-counter {
-    gap: 2px;
+  .round-label {
+    font-size: 0.75rem;
   }
 
   .round-indicator {
-    font-size: 0.95rem;
-  }
-
-  .score-indicator {
-    font-size: 0.85rem;
+    font-size: 1.25rem;
   }
 
   .station-name {
-    font-size: clamp(1rem, 4.6vw, 1.3rem);
-    white-space: normal;
-    text-align: center;
-    text-wrap: balance;
+    font-size: 1.3rem;
   }
 
   .icon-btn {
-    width: 32px;
-    height: 32px;
+    width: 38px;
+    height: 38px;
   }
 
   .icon-btn svg {
-    width: 17px;
-    height: 17px;
+    width: 20px;
+    height: 20px;
   }
 }
 

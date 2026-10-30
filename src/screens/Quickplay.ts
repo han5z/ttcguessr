@@ -109,8 +109,8 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
       </div>
       <div class="game-banner">
         <div class="hud-counter">
-          <div class="round-indicator">Station <span id="round-num"></span>/<span id="round-total"></span></div>
-          <div class="score-indicator">Score: <span id="running-score">0</span></div>
+          <div class="round-label">Station</div>
+          <div class="round-indicator"><span id="round-num"></span>/<span id="round-total"></span></div>
         </div>
         <div class="hud-prompt">
           <div class="station-name" id="prompt-name"></div>
@@ -162,8 +162,7 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
 
   const roundNumEl = container.querySelector('#round-num')!;
   const roundTotalEl = container.querySelector('#round-total')!;
-  const scoreEl = container.querySelector('#running-score')!;
-  const promptEl = container.querySelector('#prompt-name')!;
+  const promptEl = container.querySelector<HTMLElement>('#prompt-name')!;
   const dots = Array.from(container.querySelectorAll<HTMLElement>('.attempt-dot'));
   const chipsEl = container.querySelector<HTMLElement>('#hints-chips')!;
   const volumeBtn = container.querySelector<HTMLButtonElement>('#volume-btn')!;
@@ -234,9 +233,34 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
     updateAttemptDots();
     roundNumEl.textContent = String(session.currentIndex + 1);
     roundTotalEl.textContent = String(session.stations.length);
-    scoreEl.textContent = String(totalScore(session));
     promptEl.textContent = currentStation(session).name;
+    fitPromptName();
   }
+
+  // Shrinks the station name until it fits on one line inside the trapezoid, clear of the
+  // slanted edges (which live in the trapezoid's side padding).
+  function fitPromptName() {
+    const box = promptEl.parentElement!;
+    promptEl.style.fontSize = '';
+    const boxStyle = getComputedStyle(box);
+    const available = box.clientWidth - parseFloat(boxStyle.paddingLeft) - parseFloat(boxStyle.paddingRight);
+    let size = parseFloat(getComputedStyle(promptEl).fontSize);
+    while (promptEl.scrollWidth > available && size > 11) {
+      size -= 1;
+      promptEl.style.fontSize = `${size}px`;
+    }
+  }
+
+  const onResize = () => {
+    if (!promptEl.isConnected) {
+      window.removeEventListener('resize', onResize);
+      return;
+    }
+    fitPromptName();
+  };
+  window.addEventListener('resize', onResize);
+  // Re-measure once Jost has loaded, in case the first round started on the fallback font.
+  void document.fonts.ready.then(onResize);
 
   function showResults() {
     resultsModeTitle.textContent = MODE_LABEL[mode];
@@ -259,7 +283,6 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
 
   function finishRound(result: RoundResult) {
     recordResult(session, result);
-    scoreEl.textContent = String(totalScore(session));
     map.setInteractive(false);
     pendingAdvance = window.setTimeout(() => {
       if (isLastRound(session)) {
