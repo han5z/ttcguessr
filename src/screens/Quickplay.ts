@@ -66,9 +66,22 @@ function attemptLabel(result: RoundResult): string {
   return result.solved ? (ATTEMPT_LABELS[result.attemptsUsed - 1] ?? `${result.attemptsUsed}th`) : 'Revealed';
 }
 
+const SHARE_URL = 'https://ttcguessr.pages.dev';
+
 function buildShareText(session: GameSession): string {
+  return `${buildShareBody(session)}\n\n${SHARE_URL}`;
+}
+
+/** "Daily Challenge (30.10.2026)" for daily games, otherwise just the mode name. */
+function shareModeLabel(session: GameSession): string {
+  if (!session.dailyDate) return MODE_LABEL[session.mode];
+  const [y, m, d] = session.dailyDate.split('-');
+  return `${MODE_LABEL[session.mode]} (${d}.${m}.${y})`;
+}
+
+function buildShareBody(session: GameSession): string {
   if (session.mode === 'fill-map') {
-    const lines = ['TTC Guessr', MODE_LABEL[session.mode], '', `I scored ${totalScore(session)}/${maxPossibleScore(session)}!`, ''];
+    const lines = ['TTC Guessr', shareModeLabel(session), '', `I scored ${totalScore(session)}/${maxPossibleScore(session)}!`, ''];
     const b = attemptBreakdown(session);
     lines.push(`1st try: ${b.first}`);
     lines.push(`2nd try: ${b.second}`);
@@ -78,7 +91,7 @@ function buildShareText(session: GameSession): string {
     return lines.join('\n');
   }
 
-  const lines = ['TTC Guessr', MODE_LABEL[session.mode], '', `I scored ${totalScore(session)}/${maxPossibleScore(session)}!`, ''];
+  const lines = ['TTC Guessr', shareModeLabel(session), '', `I scored ${totalScore(session)}/${maxPossibleScore(session)}!`, ''];
   session.results.forEach((r, i) => {
     const numeral = KEYCAP_EMOJI[i] ?? `${i + 1}.`;
     lines.push(`${numeral} ${r.station.name} - ${attemptLabel(r)}`);
@@ -95,17 +108,17 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
         <div class="map-loading">Loading map…</div>
       </div>
       <div class="game-hud">
-        <div class="hud-topleft">
+        <div class="hud-counter">
           <div class="round-indicator">Station <span id="round-num"></span>/<span id="round-total"></span></div>
           <div class="score-indicator">Score: <span id="running-score">0</span></div>
         </div>
-        <div class="hud-topmiddle">
+        <div class="hud-prompt">
           <div class="station-name-pill" id="prompt-name"></div>
           <div class="attempt-dots" id="attempt-dots">
             <span class="attempt-dot"></span><span class="attempt-dot"></span><span class="attempt-dot"></span><span class="attempt-dot"></span>
           </div>
         </div>
-        <div class="hud-topright">
+        <div class="hud-controls">
           <button class="icon-btn" id="volume-btn" type="button" title="Toggle sound" aria-label="Toggle sound"></button>
           <button class="icon-btn" id="home-btn" type="button" title="Main menu" aria-label="Main menu">${HOME_ICON}</button>
           <button class="icon-btn" id="refresh-btn" type="button" title="Restart" aria-label="Restart">${REFRESH_ICON}</button>

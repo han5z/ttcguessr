@@ -1,5 +1,5 @@
 import { STATIONS, type Station } from '../data/stations';
-import { shuffle, dailySeedRng } from './rng';
+import { shuffle, dailySeedRng, estDateString } from './rng';
 
 export const MAX_ATTEMPTS = 4;
 /** Points awarded for a correct guess on attempt 1, 2, 3, 4; 0 if never guessed. */
@@ -26,6 +26,8 @@ export interface GameSession {
   stations: Station[];
   currentIndex: number;
   results: RoundResult[];
+  /** Daily mode only: the YYYY-MM-DD puzzle date the stations were seeded from. */
+  dailyDate?: string;
 }
 
 function poolStations(): Station[] {
@@ -33,14 +35,12 @@ function poolStations(): Station[] {
 }
 
 export function createSession(mode: GameMode): GameSession {
-  let stations: Station[];
   if (mode === 'daily') {
-    stations = shuffle(poolStations(), dailySeedRng()).slice(0, QUICKPLAY_ROUNDS);
-  } else if (mode === 'fill-map') {
-    stations = shuffle(poolStations());
-  } else {
-    stations = shuffle(poolStations()).slice(0, QUICKPLAY_ROUNDS);
+    const dailyDate = estDateString();
+    const stations = shuffle(poolStations(), dailySeedRng(dailyDate)).slice(0, QUICKPLAY_ROUNDS);
+    return { mode, stations, currentIndex: 0, results: [], dailyDate };
   }
+  const stations = mode === 'fill-map' ? shuffle(poolStations()) : shuffle(poolStations()).slice(0, QUICKPLAY_ROUNDS);
   return { mode, stations, currentIndex: 0, results: [] };
 }
 

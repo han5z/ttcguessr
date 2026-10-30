@@ -27,7 +27,7 @@ body {
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Jost', 'Futura', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 #app {
@@ -89,51 +89,65 @@ body {
 .menu-screen {
   position: relative;
   text-align: center;
-  max-width: 480px;
 }
 
+.menu-screen {
+  --menu-cream: #f1ece2;
+  --menu-grid: #9b9384;
+  --menu-green: #4f8a77;
+  --menu-green-hover: #2f6a57;
+  --menu-row: calc(100dvh / 6);
+}
+
+/* 7 x 6 grid of cells filling the viewport, as in the mockup. */
 .menu-bg {
   position: fixed;
   inset: 0;
   z-index: 0;
-  overflow: hidden;
   pointer-events: none;
-  background: var(--bg);
+  background-color: var(--menu-cream);
+  background-image:
+    linear-gradient(to right, var(--menu-grid) 2px, transparent 2px),
+    linear-gradient(to bottom, var(--menu-grid) 2px, transparent 2px);
+  background-size: calc(100vw / 7) var(--menu-row);
+  background-position: -1px -1px;
 }
 
-.menu-bg-track {
-  position: absolute;
-  inset: 0;
-  animation: menu-bg-drift 28s ease-in-out infinite alternate;
-}
-
-.menu-bg-img {
-  position: absolute;
-  top: 50%;
+.menu-logo {
+  position: fixed;
+  top: 0;
   left: 50%;
-  width: 170%;
-  max-width: none;
+  z-index: 1;
+  margin: 0;
+  width: clamp(260px, 32vw, 460px);
+  transform: translateX(-50%);
+  line-height: 0;
+}
+
+.menu-logo-img {
+  display: block;
+  width: 100%;
   height: auto;
-  transform: translate(-50%, -50%);
-  opacity: 0.16;
 }
 
-@keyframes menu-bg-drift {
-  0% {
-    transform: scale(1.05) translate(-1.5%, -1%) rotate(-0.6deg);
-  }
-  50% {
-    transform: scale(1.16) translate(1.5%, 1.5%) rotate(0.6deg);
-  }
-  100% {
-    transform: scale(1.1) translate(-1%, 2%) rotate(-0.3deg);
-  }
+.menu-logo-fallback {
+  display: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .menu-bg-track {
-    animation: none;
-  }
+/* Shown only until public/menu-logo.svg exists. */
+.menu-logo--fallback .menu-logo-img {
+  display: none;
+}
+
+.menu-logo--fallback .menu-logo-fallback {
+  display: block;
+  padding: 0.35em 0 0.45em;
+  background: var(--accent);
+  clip-path: polygon(0 0, 100% 0, 88% 100%, 12% 100%);
+  color: #fff;
+  font-size: clamp(1.8rem, 3.6vw, 3.2rem);
+  font-weight: 600;
+  line-height: 1;
 }
 
 .menu-content {
@@ -141,34 +155,52 @@ body {
   z-index: 1;
 }
 
-.menu-screen h1 {
-  font-size: 2.8rem;
-  margin-bottom: 8px;
-  letter-spacing: -0.02em;
-}
-
-.menu-screen .subtitle {
-  color: var(--muted);
-  margin-bottom: 32px;
-}
-
+/* Centres each mode on rows 3, 4 and 5 of the background grid. */
 .menu-modes {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: calc(var(--menu-row) * 2);
+  display: grid;
+  grid-template-rows: repeat(3, var(--menu-row));
+  justify-items: center;
+  align-items: center;
 }
 
-.menu-modes .btn {
-  width: 100%;
+.menu-mode-btn {
+  font: inherit;
+  font-weight: 700;
+  font-size: clamp(1.5rem, min(5vw, 7dvh), 3.6rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--menu-green);
+  background: none;
+  border: none;
+  padding: 0.1em 0.2em;
+  cursor: pointer;
+  transition: color 0.15s ease, transform 0.08s ease;
+}
+
+.menu-mode-btn:hover,
+.menu-mode-btn:focus-visible {
+  color: var(--menu-green-hover);
+}
+
+.menu-mode-btn:hover {
+  transform: scale(1.03);
+}
+
+.menu-mode-btn:active {
+  transform: scale(0.97);
 }
 
 .credits-btn {
   position: fixed;
   right: 20px;
-  bottom: 20px;
+  bottom: 16px;
   z-index: 1;
-  padding: 8px 18px;
-  font-size: 0.85rem;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
 }
 
 .share-overlay.credits-overlay {
@@ -226,27 +258,34 @@ body {
 
 /* ---------- HUD overlay ---------- */
 
+/* The station-name pill gets the top row to itself. The buttons stack vertically above
+   the station counter in the bottom-left; hints sit in the bottom-right (.hints-box). */
 .game-hud {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  inset: 0;
   z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 16px
-    max(20px, env(safe-area-inset-left));
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr auto auto;
+  grid-template-areas:
+    'prompt prompt'
+    '. .'
+    'controls .'
+    'counter .';
+  row-gap: 10px;
+  padding: max(16px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
   pointer-events: none;
 }
 
-.hud-topleft,
-.hud-topright {
+.hud-counter,
+.hud-controls {
   pointer-events: auto;
 }
 
-.hud-topleft {
+.hud-counter {
+  grid-area: counter;
+  justify-self: start;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -267,7 +306,8 @@ body {
   color: var(--muted);
 }
 
-.hud-topmiddle {
+.hud-prompt {
+  grid-area: prompt;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -282,6 +322,7 @@ body {
   font-size: 1.7rem;
   box-shadow: 0 3px 14px rgba(0, 0, 0, 0.18);
   white-space: nowrap;
+  max-width: 100%;
 }
 
 .attempt-dots {
@@ -302,8 +343,11 @@ body {
   background: var(--incorrect);
 }
 
-.hud-topright {
+.hud-controls {
+  grid-area: controls;
+  justify-self: start;
   display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
@@ -331,24 +375,15 @@ body {
   height: 22px;
 }
 
-/* Narrow screens: topleft + topright don't fit alongside the station-name pill on one row,
-   so the pill/dots drop to a second row spanning the full width instead of squeezing together. */
+/* Narrow screens: same layout, just smaller. */
 @media (max-width: 560px) {
-  .hud-topleft {
-    order: 1;
-    padding: 6px 10px;
-    gap: 2px;
-  }
-
-  .hud-topright {
-    order: 2;
+  .hud-controls {
     gap: 8px;
   }
 
-  .hud-topmiddle {
-    order: 3;
-    flex-basis: 100%;
-    margin-top: 8px;
+  .hud-counter {
+    padding: 6px 10px;
+    gap: 2px;
   }
 
   .round-indicator {
@@ -360,7 +395,7 @@ body {
   }
 
   .station-name-pill {
-    font-size: 1.25rem;
+    font-size: clamp(1rem, 5.2vw, 1.25rem);
     padding: 8px 18px;
   }
 
@@ -379,7 +414,7 @@ body {
 
 .hints-box {
   position: absolute;
-  left: max(16px, env(safe-area-inset-left));
+  right: max(16px, env(safe-area-inset-right));
   bottom: max(16px, env(safe-area-inset-bottom));
   z-index: 2;
   background: #ffffff;
@@ -437,7 +472,6 @@ body {
 .hint-chip--proximity {
   background: #111111;
 }
-
 /* ---------- Map (SVG) ---------- */
 
 .ttc-map {
