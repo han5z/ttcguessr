@@ -40,7 +40,62 @@ export interface MapView {
   /** Frame the box between two map-space points (plus padding); call after mounting. */
   focusOnBounds(x1: number, y1: number, x2: number, y2: number, padding: number): void;
   /** Smoothly re-centers the current view on a station without changing zoom. */
-  panToStation(stationId: string): void;
+  panToStation(stationId: string, durationMs?: number): void;
+}
+
+const RING_RADIUS = 24;
+const RING_POP_DURATION = 450;
+const RING_BOUNCE_DURATION = 1100;
+// One bounce cycle as [progress, radius] points: grow, dip, rebound, settle back.
+const RING_BOUNCE_KEYS: [number, number][] = [
+  [0, 24],
+  [0.3, 32],
+  [0.45, 27],
+  [0.58, 30],
+  [1, 24],
+];
+
+const FLASH_START_RADIUS = 6;
+const FLASH_END_RADIUS = 48;
+const FLASH_DURATION = 650;
+
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+
+// Overshoots slightly past 1 before settling, for the ring's pop-in.
+function easeOutBack(t: number): number {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+/** Reveal-ring radius `elapsed` ms after it appears: a pop-in, then an endless bounce. */
+function revealRingRadius(elapsed: number): number {
+  if (elapsed < RING_POP_DURATION) return RING_RADIUS * easeOutBack(elapsed / RING_POP_DURATION);
+  const p = ((elapsed - RING_POP_DURATION) % RING_BOUNCE_DURATION) / RING_BOUNCE_DURATION;
+  for (let i = 1; i < RING_BOUNCE_KEYS.length; i++) {
+    const [p0, r0] = RING_BOUNCE_KEYS[i - 1];
+    const [p1, r1] = RING_BOUNCE_KEYS[i];
+    if (p <= p1) return r0 + (r1 - r0) * easeInOut((p - p0) / (p1 - p0));
+  }
+  return RING_RADIUS;
+}
+
+// With Reduce Motion on, the ring still has to draw the eye to the answer, so instead of
+// switching the animation off it fades in and then slowly pulses within a small range.
+const GENTLE_FADE_DURATION = 400;
+const GENTLE_PULSE_DURATION = 2000;
+const GENTLE_PULSE_MAX_RADIUS = 28;
+
+/** Reduced-motion reveal ring at `elapsed` ms: its radius and opacity. */
+function gentleRevealRing(elapsed: number): { r: number; opacity: number } {
+  const opacity = Math.min(1, elapsed / GENTLE_FADE_DURATION);
+  const phase = (elapsed % GENTLE_PULSE_DURATION) / GENTLE_PULSE_DURATION;
+  const swell = (1 - Math.cos(phase * 2 * Math.PI)) / 2; // 0 -> 1 -> 0, smoothly
+  return { r: RING_RADIUS + (GENTLE_PULSE_MAX_RADIUS - RING_RADIUS) * swell, opacity };
+}
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 function el<K extends keyof SVGElementTagNameMap>(tag: K, attrs: Record<string, string | number> = {}): SVGElementTagNameMap[K] {
@@ -177,9 +232,20 @@ export async function createMapView(): Promise<MapView> {
   let interactive = true;
   const view = { x: 0, y: 0, w: MAP_VIEWBOX.width, h: MAP_VIEWBOX.height };
 
+  // The SVG uses preserveAspectRatio "slice", which crops any part of the viewBox that doesn't
+  // match the screen's shape - evenly from both sides. So the view must always have exactly the
+  // screen's aspect ratio (and be no bigger than the map in either direction); otherwise the
+  // map's outer edges, e.g. Humber College's label on the far left, can be cropped out of reach.
   function applyView() {
-    view.w = Math.min(view.w, MAP_VIEWBOX.width);
-    view.h = Math.min(view.h, MAP_VIEWBOX.height);
+    const rect = svg.getBoundingClientRect();
+    const aspect = rect.width > 0 && rect.height > 0 ? rect.width / rect.height : MAP_VIEWBOX.width / MAP_VIEWBOX.height;
+    const maxW = Math.min(MAP_VIEWBOX.width, MAP_VIEWBOX.height * aspect);
+    const cx = view.x + view.w / 2;
+    const cy = view.y + view.h / 2;
+    view.w = clamp(view.w, Math.min(MIN_VIEW_WIDTH, maxW), maxW);
+    view.h = view.w / aspect;
+    view.x = cx - view.w / 2;
+    view.y = cy - view.h / 2;
     view.x = clamp(view.x, 0, MAP_VIEWBOX.width - view.w);
     view.y = clamp(view.y, 0, MAP_VIEWBOX.height - view.h);
     svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.w} ${view.h}`);
@@ -218,17 +284,17 @@ export async function createMapView(): Promise<MapView> {
   }
 
   /** Smoothly re-centers the current view on a station without changing zoom. */
-  function panToStation(stationId: string) {
+  function panToStation(stationId: string, durationMs = 500) {
     const station = STATIONS.find((s) => s.id === stationId);
     if (!station) return;
     cancelPanAnimation();
     const startCx = view.x + view.w / 2;
     const startCy = view.y + view.h / 2;
-    const duration = 500;
     const startTime = performance.now();
     const step = (now: number) => {
-      const t = Math.min(1, (now - startTime) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
+      const t = Math.min(1, (now - startTime) / durationMs);
+      // Ease in and out, so a long pan starts gently instead of jumping away.
+      const eased = easeInOut(t);
       view.x = startCx + (station.x - startCx) * eased - view.w / 2;
       view.y = startCy + (station.y - startCy) * eased - view.h / 2;
       applyView();
@@ -434,17 +500,35 @@ export async function createMapView(): Promise<MapView> {
     }
   }
 
+  // The reveal ring and click flash are animated here, frame by frame. The ring always
+  // animates: the full pop-in and bounce normally, or a gentle fade and pulse with Reduce Motion.
   function revealStation(stationId: string) {
     const station = STATIONS.find((s) => s.id === stationId);
     if (!station) return;
+    const gentle = prefersReducedMotion();
     const ring = el('circle', {
       cx: station.x,
       cy: station.y,
-      r: 26,
+      r: gentle ? RING_RADIUS : 0, // starts invisible so it can only appear via the pop-in
       class: 'reveal-ring',
       fill: 'none',
     });
+    if (gentle) ring.style.opacity = '0';
     overlayLayer.appendChild(ring);
+    let start: number | null = null;
+    const step = (now: number) => {
+      if (!ring.isConnected) return; // cleared by resetHighlights()
+      start ??= now; // time from the first drawn frame, so the appearance is never skipped
+      if (gentle) {
+        const { r, opacity } = gentleRevealRing(now - start);
+        ring.setAttribute('r', r.toFixed(2));
+        ring.style.opacity = opacity.toFixed(3);
+      } else {
+        ring.setAttribute('r', revealRingRadius(now - start).toFixed(2));
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   }
 
   function flashStation(stationId: string, kind: 'correct' | 'incorrect') {
@@ -457,11 +541,21 @@ export async function createMapView(): Promise<MapView> {
     const ring = el('circle', {
       cx: x,
       cy: y,
-      r: 10,
+      r: FLASH_START_RADIUS,
       class: kind === 'correct' ? 'click-flash click-flash--correct' : 'click-flash click-flash--incorrect',
     });
     overlayLayer.appendChild(ring);
-    setTimeout(() => ring.remove(), 650);
+    const start = performance.now();
+    const step = (now: number) => {
+      if (!ring.isConnected) return;
+      const t = Math.min(1, (now - start) / FLASH_DURATION);
+      const eased = 1 - Math.pow(1 - t, 3);
+      ring.setAttribute('r', (FLASH_START_RADIUS + (FLASH_END_RADIUS - FLASH_START_RADIUS) * eased).toFixed(2));
+      ring.style.opacity = (1 - eased).toFixed(3);
+      if (t < 1) requestAnimationFrame(step);
+      else ring.remove();
+    };
+    requestAnimationFrame(step);
   }
 
   function createLabelClone(stationId: string): SVGElement | null {

@@ -195,6 +195,7 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
   let attempt = 1;
   let awaitingRevealConfirm = false;
   let pendingAdvance: number | undefined;
+  let revealTimers: number[] = [];
 
   function updateAttemptDots() {
     const wrongCount = Math.min(attempt - 1, dots.length);
@@ -299,6 +300,29 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
       clearTimeout(pendingAdvance);
       pendingAdvance = undefined;
     }
+    revealTimers.forEach((id) => clearTimeout(id));
+    revealTimers = [];
+  }
+
+  // After the last wrong guess: let the wrong-guess flash finish, slowly pan to the correct
+  // station, show its name once the map has arrived, and then pop up the bouncing red ring.
+  // The map ignores taps until the ring is up, at which point tapping the station confirms.
+  const REVEAL_PAN_DELAY = 500;
+  const REVEAL_PAN_DURATION = 1200;
+  const REVEAL_RING_DELAY = 400;
+
+  function playRevealSequence(targetId: string) {
+    map.setInteractive(false);
+    const later = (delay: number, fn: () => void) => revealTimers.push(window.setTimeout(fn, delay));
+    const panEnd = REVEAL_PAN_DELAY + REVEAL_PAN_DURATION;
+    later(REVEAL_PAN_DELAY, () => map.panToStation(targetId, REVEAL_PAN_DURATION));
+    later(panEnd, () => map.showLabel(targetId));
+    later(panEnd + REVEAL_RING_DELAY, () => {
+      map.revealStation(targetId);
+      awaitingRevealConfirm = true;
+      map.setInteractive(true);
+      revealTimers = [];
+    });
   }
 
   function startNewGame() {
@@ -378,10 +402,7 @@ export async function renderQuickplay(container: HTMLElement, opts: QuickplayOpt
     updateAttemptDots();
 
     if (attempt > MAX_ATTEMPTS) {
-      awaitingRevealConfirm = true;
-      map.revealStation(target.id);
-      map.showLabel(target.id);
-      map.panToStation(target.id);
+      playRevealSequence(target.id);
     } else if (attempt === 2) {
       map.highlightLines(target.lines);
       addLineChips(target.lines);

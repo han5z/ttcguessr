@@ -399,30 +399,46 @@ body {
   height: 22px;
 }
 
-/* Narrow screens: the buttons leave the banner and stack in the bottom-left corner (home at
-   the bottom, then restart, volume on top), leaving the banner to the counter and the
-   trapezoid. The trapezoid centres in the space right of the counter, and the name stays on
-   one line (fitPromptName in Quickplay.ts shrinks it if it would overflow). */
+/* Narrow screens: the banner holds only the trapezoid, centred. The station counter becomes
+   its own card in the bottom-left corner, with the buttons stacked above it (home lowest,
+   then restart, volume on top). The name stays on one line (fitPromptName in Quickplay.ts
+   shrinks it if it would overflow). */
 @media (max-width: 560px) {
   .game-banner {
-    grid-template-columns: auto 1fr;
-    column-gap: 10px;
+    --hud-left: max(16px, env(safe-area-inset-left));
+    --hud-bottom: max(16px, env(safe-area-inset-bottom));
+    --counter-size: 56px;
+    grid-template-columns: 1fr;
     padding-left: max(14px, env(safe-area-inset-left));
     padding-right: max(14px, env(safe-area-inset-right));
   }
 
   .hud-prompt {
     --slant: 16px;
+    grid-column: 1;
     justify-self: center;
     max-width: 100%;
     padding: 6px calc(var(--slant) + 8px) 8px;
     gap: 5px;
   }
 
+  .hud-counter {
+    position: fixed;
+    left: var(--hud-left);
+    bottom: var(--hud-bottom);
+    width: var(--counter-size);
+    height: var(--counter-size);
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+  }
+
   .hud-controls {
     position: fixed;
-    left: max(16px, env(safe-area-inset-left));
-    bottom: max(16px, env(safe-area-inset-bottom));
+    /* Centred over the counter card, with a 10px gap above it. */
+    left: calc(var(--hud-left) + (var(--counter-size) - 38px) / 2);
+    bottom: calc(var(--hud-bottom) + var(--counter-size) + 10px);
     flex-direction: column-reverse;
     gap: 8px;
   }
@@ -547,29 +563,16 @@ body {
   pointer-events: none;
 }
 
+/* The reveal ring's pop-in/bounce (or gentle pulse with Reduce Motion) and the click flash's
+   grow-and-fade are animated frame by frame in mapView.ts. */
 .reveal-ring {
   stroke: var(--accent);
   stroke-width: 5;
-  animation: pulse-reveal 0.9s ease-in-out infinite;
-}
-
-@keyframes pulse-reveal {
-  0%,
-  100% {
-    r: 20;
-    opacity: 0.65;
-  }
-  50% {
-    r: 30;
-    opacity: 1;
-  }
 }
 
 .click-flash {
   fill: none;
   stroke-width: 6;
-  opacity: 0.9;
-  animation: click-flash-anim 0.65s ease-out forwards;
 }
 
 .click-flash--correct {
@@ -580,16 +583,6 @@ body {
   stroke: var(--incorrect);
 }
 
-@keyframes click-flash-anim {
-  from {
-    r: 6;
-    opacity: 1;
-  }
-  to {
-    r: 48;
-    opacity: 0;
-  }
-}
 
 /* ---------- Results overlay ---------- */
 
